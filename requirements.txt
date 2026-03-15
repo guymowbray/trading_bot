@@ -1,0 +1,7 @@
+yfinance
+pandas
+numpy
+pytest
+ib-insync
+asyncio
+scikit-learn
