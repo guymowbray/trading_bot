@@ -1,0 +1,57 @@
+RULES OF THE GAME
+
+1. SPY
+    - if bull we go long
+    - price has to be above MA50 and MA200
+    - we want to go with momentum. 
+2. look at sector trend
+    - only buy when sector trend is bull
+3. look at stock trend
+    - look at individual stocks
+    - only buy sector leaders
+    - only buy when the current (or last closing price) hasn't overextended (under 5%).
+4. RSI/other
+    - Nice to have, may make this stratergy more complicated. 
+    - RSI between 25%-75%
+5. STOP LOSS/ SELL LIMIT
+    - Have stop loss at 5% of the average price.
+    - Limit order of 10-15%. 
+    - risk-reward ratio of 1:2 or 1:3
+
+How do we know if this is successful?
+- Firstly I at least want to break even with trades. At that point the AWS running costs will put me into negative territory.
+- Secondly  
+    
+
+TECHNOLOGY - XLK
+HEALTHCARE - XLV
+FINANCE - XLF
+CONSUMER DISCRETIONARY - XLY
+COMMUNICATION SERVICES - XLC
+INDUSTRIAL - XLI
+ENERGY - XLE
+CONSUMER STAPLES - XLP
+UTILITIES - XLU
+REAL ESTATE - XLRE
+MATERIALS - XLB
+
+Cloud server (Linux)
+    ↓
+IBKR Gateway
+    ↓
+Python execution engine
+    ↓
+Risk engine
+    ↓
+Order execution
+    ↓
+Database logging
+    ↓
+Monitoring dashboard
+
+market_data.py
+signals.py
+risk.py
+execution.py
+config.py
+main.py
