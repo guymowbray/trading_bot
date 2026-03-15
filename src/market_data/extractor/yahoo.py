@@ -1,11 +1,21 @@
-from datetime import datetime
 import os
+import uuid
+from datetime import datetime
 
-import numpy as np
 import pandas as pd
 import yfinance as yf
-from src.util.util import EQUITY_DIR, EQUITY_TICKERS, MA50, MA200, INDEX_TICKERS, MACRO_DIR, INDEX_DIR, MACRO_TICKERS, DATA_DIR
-import uuid
+
+from src.util.util import (
+    DATA_DIR,
+    EQUITY_DIR,
+    EQUITY_TICKERS,
+    INDEX_DIR,
+    INDEX_TICKERS,
+    MA50,
+    MA200,
+    MACRO_DIR,
+    MACRO_TICKERS,
+)
 
 
 class TickerDataQuery:
@@ -79,32 +89,16 @@ def extract_ticker_data(ticker_list: dict = INDEX_TICKERS):
         payload[ticker_symbol] = data
     
     return payload
-    """
-    Calculates the support levels based on the clusters of lows.
 
-    Input: Python Dict of List of prices 
-    """
-    zones = []
-
-    
-    for cluster in clusters.values():
-        
-        lower = min(cluster)
-        upper = max(cluster)
-        mean = np.mean(cluster)
-
-        zones.append({
-            "support_mean": mean,
-            "support_lower": lower,
-            "support_upper": upper,
-            "touches": len(cluster)
-        })
-
-    return zones
 
 def save_pandas_dataframe(data: pd.DataFrame, filename: str, base_dir: str, file_extension: str):
     os.makedirs(base_dir, exist_ok=True)
-    data.to_csv(f"{base_dir}/{filename}.{file_extension}")
+    if file_extension == "parquet":
+        data.to_parquet(f"{base_dir}/{filename}.{file_extension}")
+    elif file_extension == "csv":
+        data.to_csv(f"{base_dir}/{filename}.{file_extension}")
+    else:
+        raise ValueError(f"Unsupported file extension: {file_extension}")
 
 
 def save_raw_data(payload: dict, base_dir: str = None, execution_uuid: str = "HELLO", file_extension: str = "parquet"):
@@ -120,9 +114,9 @@ def save_raw_data(payload: dict, base_dir: str = None, execution_uuid: str = "HE
     return True
 
 
-def yahoo_main():
-    today_date = datetime.today().strftime("%Y/%m/%d")
-    run_uuid = uuid.uuid4().hex
+def yahoo_main(today_date=None, run_uuid=None):
+    today_date = today_date or datetime.today().strftime("%Y/%m/%d")
+    run_uuid = run_uuid or uuid.uuid4().hex
 
     macro_dir = MACRO_DIR / today_date / run_uuid
     macro_data = extract_ticker_data(ticker_list=MACRO_TICKERS)
