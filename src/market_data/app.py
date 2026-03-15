@@ -1,6 +1,5 @@
 
-from src.market_data.extractor.yahoo import get_ticker_data, yahoo_main
-
+from src.market_data.extractor.yahoo import yahoo_main
 
 """
 Step 3 — Risk Management (Most Important)

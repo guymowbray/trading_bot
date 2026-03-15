@@ -1,0 +1,22 @@
+[project]
+name = "trading_bot"
+version = "0.1.0"
+description = "Trading bot"
+requires-python = ">=3.11"
+
+dependencies = [
+    "yfinance",
+    "pandas",
+    "numpy",
+    "ib-insync",
+    "asyncio",
+    "scikit-learn",
+    "freezegun",
+    "pyarrow"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff"
+]
