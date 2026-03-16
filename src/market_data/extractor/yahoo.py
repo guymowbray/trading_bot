@@ -1,11 +1,14 @@
+import json
 import os
 import uuid
 from datetime import UTC, datetime
+from typing import Dict
 
 import pandas as pd
 import yfinance as yf
 
 from src.util.util import (
+    DATA_DIR,
     EQUITY_DIR,
     EQUITY_TICKERS,
     INDEX_DIR,
@@ -110,40 +113,85 @@ def save_pandas_dataframe(data: pd.DataFrame, filename: str, base_dir: str, file
     os.makedirs(base_dir, exist_ok=True)
     if file_extension == "parquet":
         data.to_parquet(f"{base_dir}/{filename}.{file_extension}")
-    elif file_extension == "csv":
-        data.to_csv(f"{base_dir}/{filename}.{file_extension}")
     else:
         raise ValueError(f"Unsupported file extension: {file_extension}")
 
 
 def save_raw_data(
-    payload: dict, base_dir: str = None, execution_uuid: str = None, file_extension: str = "parquet"
+    payload: Dict[str, pd.DataFrame], base_dir: str, execution_uuid: str, file_extension: str
 ):
-    if not base_dir:
-        raise ValueError("base_dir is required")
+    # TODO: validate this properly, maybe make a MarketData model.
+    # also should do validation elsewhere.
+    if not payload:
+        raise ValueError("Missing dict with ticker and data payload missing")
 
-    if not execution_uuid:
-        raise ValueError("execution_uuid is required")
+    base_dir.mkdir(parents=True, exist_ok=True)
 
     for ticker, data in payload.items():
         fname = f"{ticker}_{execution_uuid}"
         save_pandas_dataframe(data, fname, base_dir, file_extension)
 
-    return True
+    return None
 
 
-def yahoo_main(today_date=None, run_uuid=None):
+def create_dataset_metadata(data, dataset_name, execution_uuid, dataset_dir, file_extension):
+    return {
+        "dataset": dataset_name,
+        "execution_uuid": execution_uuid,
+        "tickers": list(data.keys()),
+        "files": {
+            ticker: f"{dataset_dir}/{ticker}_{execution_uuid}.{file_extension}"
+            for ticker in data.keys()
+        },
+        "rows": {ticker: len(df) for ticker, df in data.items()},
+    }
+
+
+def save_metadata_file(metadata_payload: dict, base_dir: str, execution_uuid: str):
+    os.makedirs(base_dir, exist_ok=True)
+    filename = f"metadata_{execution_uuid}.json"
+    with open(os.path.join(base_dir, filename), "w") as f:
+        json.dump(metadata_payload, f)
+
+
+def yahoo_main(today_date=None, run_uuid=None, save_location="local", file_extension="parquet"):
+    # TODO: untested, need to add tests for this.
     today_date = today_date or datetime.today().strftime("%Y/%m/%d")
     run_uuid = run_uuid or generate_execution_uuid()
 
-    macro_dir = MACRO_DIR / today_date / run_uuid
-    macro_data = extract_ticker_data(ticker_list=MACRO_TICKERS)
-    save_raw_data(macro_data, macro_dir, run_uuid)
+    # TODO: add S3 and test this.
+    if save_location == "local":
+        base_dir = DATA_DIR
+    elif save_location == "s3":
+        # PLACEHOLDER
+        base_dir = "s3://your-bucket/data"
+    else:
+        raise ValueError(f"Unsupported save location: {save_location}")
 
-    index_dir = INDEX_DIR / today_date / run_uuid
-    index_data = extract_ticker_data(ticker_list=INDEX_TICKERS)
-    save_raw_data(index_data, index_dir, run_uuid)
+    datasets = {
+        "macro": (MACRO_DIR, MACRO_TICKERS),
+        "index": (INDEX_DIR, INDEX_TICKERS),
+        "equities": (EQUITY_DIR, EQUITY_TICKERS),
+    }
 
-    equities_dir = EQUITY_DIR / today_date / run_uuid
-    equities_data = extract_ticker_data(ticker_list=EQUITY_TICKERS)
-    save_raw_data(equities_data, equities_dir, run_uuid)
+    for dataset_name, (dataset_dir_name, tickers) in datasets.items():
+        dataset_dir = base_dir / dataset_dir_name / today_date / run_uuid
+
+        data = extract_ticker_data(ticker_list=tickers)
+
+        save_raw_data(
+            payload=data,
+            base_dir=dataset_dir,
+            execution_uuid=run_uuid,
+            file_extension=file_extension,
+        )
+
+        metadata = create_dataset_metadata(
+            data=data,
+            dataset_name=dataset_name,
+            execution_uuid=run_uuid,
+            dataset_dir=dataset_dir,
+            file_extension=file_extension,
+        )
+
+        save_metadata_file(metadata, dataset_dir, run_uuid)

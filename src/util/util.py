@@ -2,9 +2,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
-MACRO_DIR = DATA_DIR / "macro"
-INDEX_DIR = DATA_DIR / "index"
-EQUITY_DIR = DATA_DIR / "equities"
+MACRO_DIR = "macro"
+INDEX_DIR = "index"
+EQUITY_DIR = "equities"
 
 BRENT_YAHOO = "BZ"
 MA50 = "MA50"
