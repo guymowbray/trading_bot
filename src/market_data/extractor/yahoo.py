@@ -1,12 +1,11 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pandas as pd
 import yfinance as yf
 
 from src.util.util import (
-    DATA_DIR,
     EQUITY_DIR,
     EQUITY_TICKERS,
     INDEX_DIR,
@@ -22,9 +21,11 @@ class TickerDataQuery:
     ticker: str
     period: str
 
+
 class TickerDataResult:
     ticker: str
     data: pd.DataFrame
+
 
 def get_ticker_data(ticker: str):
     "Gets ticker data using yahoo finance package."
@@ -34,24 +35,27 @@ def get_ticker_data(ticker: str):
 def get_last_row_data(data):
     return data.loc[data.index[-1]]
 
+
 def get_timestamp_from_last_row(data) -> pd.Timestamp:
     last_row = get_last_row_data(data)
     return last_row.name
+
 
 def get_row_where_date_equals(data, date):
     """
     Find row data where date equals.
     Date format is '2025-02-14'
-    
+
     :param data: pandas dataframe
     :param date: date(str)
     """
-    return data.loc[data.index == date + ' 00:00:00-05:00']
+    return data.loc[data.index == date + " 00:00:00-05:00"]
+
 
 def check_current_price_above_MA200(data: pd.DataFrame) -> bool:
     """
     Checks to see if current price is above the MA200 value.
-    
+
     :param data: Description
     :type data: pd.DataFrame
     :return: Description
@@ -59,13 +63,14 @@ def check_current_price_above_MA200(data: pd.DataFrame) -> bool:
     """
     if data.iloc[0]["Close"] >= data.iloc[0][MA200]:
         return True
-    else: 
+    else:
         return False
+
 
 def check_current_price_above_MA50(data: pd.DataFrame) -> bool:
     """
-    Checks to see if current price is above the MA50 value. 
-    
+    Checks to see if current price is above the MA50 value.
+
     :param data: Description
     :type data: pd.DataFrame
     :return: Description
@@ -73,7 +78,7 @@ def check_current_price_above_MA50(data: pd.DataFrame) -> bool:
     """
     if data.iloc[0]["Close"] >= data.iloc[0][MA50]:
         return True
-    else: 
+    else:
         return False
 
 
@@ -87,8 +92,18 @@ def extract_ticker_data(ticker_list: dict = INDEX_TICKERS):
         data = get_ticker_data(ticker_symbol)
         data = data.history(period="1y")
         payload[ticker_symbol] = data
-    
+
     return payload
+
+
+def generate_execution_uuid() -> str:
+    """
+    Generates a unique execution UUID using the current timestamp and a random UUID.
+
+    :return: A unique execution UUID. eg 20260315_120505_5f2e4c8b9a1d4e5f8c9b0a7d6e3f2a1
+    20260315_120505 is the timestamp and 5f2e4c8b9a1d4e5f8c9b0a7d6e3f2a1 is the random UUID.
+    """
+    return f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}"
 
 
 def save_pandas_dataframe(data: pd.DataFrame, filename: str, base_dir: str, file_extension: str):
@@ -101,11 +116,14 @@ def save_pandas_dataframe(data: pd.DataFrame, filename: str, base_dir: str, file
         raise ValueError(f"Unsupported file extension: {file_extension}")
 
 
-def save_raw_data(payload: dict, base_dir: str = None, execution_uuid: str = "HELLO", file_extension: str = "parquet"):
-    if base_dir is None:
-        today_dir = datetime.today().strftime("%Y/%m/%d")
-        base_dir = os.path.join(DATA_DIR, "raw", today_dir, "index")
-    os.makedirs(base_dir, exist_ok=True)
+def save_raw_data(
+    payload: dict, base_dir: str = None, execution_uuid: str = None, file_extension: str = "parquet"
+):
+    if not base_dir:
+        raise ValueError("base_dir is required")
+
+    if not execution_uuid:
+        raise ValueError("execution_uuid is required")
 
     for ticker, data in payload.items():
         fname = f"{ticker}_{execution_uuid}"
@@ -116,7 +134,7 @@ def save_raw_data(payload: dict, base_dir: str = None, execution_uuid: str = "HE
 
 def yahoo_main(today_date=None, run_uuid=None):
     today_date = today_date or datetime.today().strftime("%Y/%m/%d")
-    run_uuid = run_uuid or uuid.uuid4().hex
+    run_uuid = run_uuid or generate_execution_uuid()
 
     macro_dir = MACRO_DIR / today_date / run_uuid
     macro_data = extract_ticker_data(ticker_list=MACRO_TICKERS)
@@ -129,4 +147,3 @@ def yahoo_main(today_date=None, run_uuid=None):
     equities_dir = EQUITY_DIR / today_date / run_uuid
     equities_data = extract_ticker_data(ticker_list=EQUITY_TICKERS)
     save_raw_data(equities_data, equities_dir, run_uuid)
-

@@ -8,6 +8,8 @@ install: venv
 
 lint:
 	ruff check . --fix
+	ruff check . --select I --fix
+	ruff format .
 
 lint-isort:
 	ruff check . --select I --fix
@@ -20,3 +22,6 @@ test:
 
 test-market-data:
 	pytest tests/market_data
+
+run-market-data-local:
+	python -m src.market_data.app

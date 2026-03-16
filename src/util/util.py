@@ -6,7 +6,7 @@ MACRO_DIR = DATA_DIR / "macro"
 INDEX_DIR = DATA_DIR / "index"
 EQUITY_DIR = DATA_DIR / "equities"
 
-BRENT_YAHOO="BZ"
+BRENT_YAHOO = "BZ"
 MA50 = "MA50"
 MA200 = "MA200"
 VOLUME = "Volume"
@@ -41,7 +41,7 @@ INDEX_TICKERS = {
     "CONSUMER STAPLES": "XLP",
     "UTILITIES": "XLU",
     "REAL ESTATE": "XLRE",
-    "MATERIALS": "XLB"
+    "MATERIALS": "XLB",
 }
 
 EQUITY_TICKERS = {
@@ -51,5 +51,5 @@ EQUITY_TICKERS = {
     "AMZN": "AMZN",
     "META": "META",
     "TSLA": "TSLA",
-    "NVDA": "NVDA"
+    "NVDA": "NVDA",
 }
