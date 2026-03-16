@@ -12,7 +12,7 @@ dependencies = [
     "asyncio",
     "scikit-learn",
     "freezegun",
-    "pyarrow"
+    "pyarrow",
 ]
 
 [project.optional-dependencies]

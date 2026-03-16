@@ -1,3 +1,5 @@
+import json
+import os
 from datetime import datetime
 from unittest.mock import patch
 
@@ -6,13 +8,24 @@ import pandas as pd
 import pytest
 from freezegun import freeze_time
 
-from src.market_data.extractor.yahoo import generate_execution_uuid, save_pandas_dataframe
+from src.market_data.extractor.yahoo import (
+    create_dataset_metadata,
+    generate_execution_uuid,
+    save_metadata_file,
+    save_pandas_dataframe,
+    save_raw_data,
+)
 
 
-def mock_get_ticker_data(ticker_symbol):
-    dummy_data = {"Close": [100], "MA200": [90], "MA50": [95]}
+@pytest.fixture
+def dummy_data():
+    df = pd.DataFrame({"Close": [100], "MA200": [90], "MA50": [95]})
+    df.index = [datetime(2026, 3, 15, 5, 0, 0)]
+    return df
+
+
+def mock_get_ticker_data(ticker_symbol, dummy_data):
     df = pd.DataFrame(dummy_data)
-    df.index = [datetime(2026, 3, 15, 00, 00, 00, 5, 00)]
     return df
 
 
@@ -96,3 +109,97 @@ def test_generate_execution_uuid_successfully(mock_uuid_hex, datetime_uuid, expe
             actual_generated_uuid = generate_execution_uuid()
 
             assert actual_generated_uuid == expected_uuid
+
+
+@freeze_time("2026-03-15 05:00:00")
+def test_save_raw_data_successfully(dummy_data, tmp_path):
+    payload = {
+        "TEST_TICKER_1": dummy_data,
+        "TEST_TICKER_2": dummy_data,
+    }
+    save_raw_data(
+        payload=payload, base_dir=tmp_path, execution_uuid="TEST_UUID", file_extension="parquet"
+    )
+    saved_file_1 = tmp_path / "TEST_TICKER_1_TEST_UUID.parquet"
+    saved_file_2 = tmp_path / "TEST_TICKER_2_TEST_UUID.parquet"
+
+    assert os.path.exists(saved_file_1)
+    assert os.path.exists(saved_file_2)
+
+    loaded_data = pd.read_parquet(saved_file_1)
+    loaded_data = pd.read_parquet(saved_file_2)
+
+    pd.testing.assert_frame_equal(loaded_data, dummy_data, check_dtype=True)
+
+
+def test_save_raw_data_missing_payload_raises_error(tmp_path):
+    with pytest.raises(ValueError) as error_info:
+        save_raw_data(
+            payload=None, base_dir=tmp_path, execution_uuid="TEST_UUID", file_extension="parquet"
+        )
+
+    assert "Missing dict with ticker and data payload missing" in str(error_info.value)
+
+
+def test_save_metadata_file_successfully(tmp_path):
+    metadata = {
+        "dataset": "TEST_DATASET",
+        "execution_id": "TEST_EXECUTION_ID",
+        "tickers": ["TICKER1", "TICKER2"],
+        "files": {
+            "TICKER1": f"{tmp_path}/TICKER1_TEST_EXECUTION_ID.parquet",
+            "TICKER2": f"{tmp_path}/TICKER2_TEST_EXECUTION_ID.parquet",
+        },
+        "rows": {
+            "TICKER1": 100,
+            "TICKER2": 200,
+        },
+    }
+
+    save_metadata_file(
+        metadata_payload=metadata, base_dir=tmp_path, execution_uuid="TEST_EXECUTION_ID"
+    )
+
+    saved_file = tmp_path / "metadata_TEST_EXECUTION_ID.json"
+
+    assert saved_file.exists()
+
+    with open(saved_file, "r") as f:
+        loaded_metadata = json.load(f)
+
+    assert loaded_metadata == metadata
+
+
+def test_create_dataset_metadata_successfully(dummy_data):
+    data = {
+        "TICKER1": dummy_data,
+        "TICKER2": dummy_data,
+    }
+    dataset_name = "TEST_DATASET"
+    execution_uuid = "TEST_EXECUTION_UUID"
+    dataset_dir = "/path/to/dataset"
+    file_extension = "parquet"
+
+    expected_metadata = {
+        "dataset": dataset_name,
+        "execution_uuid": execution_uuid,
+        "tickers": ["TICKER1", "TICKER2"],
+        "files": {
+            "TICKER1": f"{dataset_dir}/TICKER1_{execution_uuid}.{file_extension}",
+            "TICKER2": f"{dataset_dir}/TICKER2_{execution_uuid}.{file_extension}",
+        },
+        "rows": {
+            "TICKER1": len(dummy_data),
+            "TICKER2": len(dummy_data),
+        },
+    }
+
+    actual_metadata = create_dataset_metadata(
+        data=data,
+        dataset_name=dataset_name,
+        execution_uuid=execution_uuid,
+        dataset_dir=dataset_dir,
+        file_extension=file_extension,
+    )
+
+    assert actual_metadata == expected_metadata
