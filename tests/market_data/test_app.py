@@ -1,10 +1,10 @@
 import json
 import os
-from datetime import datetime
 from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from pandas.testing import assert_frame_equal
 import pytest
 from freezegun import freeze_time
 
@@ -15,13 +15,6 @@ from src.market_data.extractor.yahoo import (
     save_pandas_dataframe,
     save_raw_data,
 )
-
-
-@pytest.fixture
-def dummy_data():
-    df = pd.DataFrame({"Close": [100], "MA200": [90], "MA50": [95]})
-    df.index = [datetime(2026, 3, 15, 5, 0, 0)]
-    return df
 
 
 def mock_get_ticker_data(ticker_symbol, dummy_data):
@@ -73,7 +66,7 @@ def test_save_pandas_dataframe_successfully(tmp_path):
     assert (target_dir / "test_dataframe.parquet").exists()
 
     loaded_data = pd.read_parquet(saved_file)
-    pd.testing.assert_frame_equal(data, loaded_data, check_dtype=True)
+    assert_frame_equal(data, loaded_data, check_dtype=True)
 
 
 def test_save_pandas_dataframe_unsupported_extension(tmp_path):
@@ -129,7 +122,7 @@ def test_save_raw_data_successfully(dummy_data, tmp_path):
     loaded_data = pd.read_parquet(saved_file_1)
     loaded_data = pd.read_parquet(saved_file_2)
 
-    pd.testing.assert_frame_equal(loaded_data, dummy_data, check_dtype=True)
+    assert_frame_equal(loaded_data, dummy_data, check_dtype=True)
 
 
 def test_save_raw_data_missing_payload_raises_error(tmp_path):
