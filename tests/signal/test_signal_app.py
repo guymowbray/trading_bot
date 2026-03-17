@@ -1,12 +1,10 @@
 
 
 import json
-import pandas as pd
 
 
 from src.signal.app import load_json_file, load_dataframe_file
 from pandas.testing import assert_frame_equal
-from tests.conftest import dummy_data
 
 
 def test_load_json_file_successfully(tmp_path):

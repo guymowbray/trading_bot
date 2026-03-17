@@ -15,7 +15,6 @@ from src.market_data.extractor.yahoo import (
     save_pandas_dataframe,
     save_raw_data,
 )
-from tests.conftest import dummy_data
 
 
 def mock_get_ticker_data(ticker_symbol, dummy_data):

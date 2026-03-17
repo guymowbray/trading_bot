@@ -1,9 +1,8 @@
-import json
 
 import pandas as pd
 
-from src.util.util import DATASETS, DATA_DIR, MA200, MA50, MACRO_DIR, INDEX_DIR, EQUITY_DIR, VOLUME
-from src.signal.extractor import LOADERS, load_json_file, load_dataframe_file, load_metadata_files_locally, load_market_data_batches_using_metadata
+from src.util.util import MA200, MA50, MACRO_DIR, INDEX_DIR, EQUITY_DIR, VOLUME
+from src.signal.extractor import load_metadata_files_locally, load_market_data_batches_using_metadata
 
 
 def calculate_moving_averages(data: pd.DataFrame):

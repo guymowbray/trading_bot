@@ -2,7 +2,7 @@
 import pandas as pd
 import json
 
-from src.util.util import DATA_DIR, MACRO_DIR, INDEX_DIR, EQUITY_DIR
+from src.util.util import DATA_DIR
 
 LOADERS = {
     "parquet": pd.read_parquet,

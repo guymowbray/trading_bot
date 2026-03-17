@@ -10,14 +10,9 @@ import yfinance as yf
 from src.util.util import (
     DATA_DIR,
     DATASETS,
-    EQUITY_DIR,
-    EQUITY_TICKERS,
-    INDEX_DIR,
     INDEX_TICKERS,
     MA50,
     MA200,
-    MACRO_DIR,
-    MACRO_TICKERS,
 )
 
 
