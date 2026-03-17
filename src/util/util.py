@@ -11,6 +11,7 @@ MA50 = "MA50"
 MA200 = "MA200"
 VOLUME = "Volume"
 
+
 # MACRO_TICKERS = {
 #     "CPI": "CPIAUCSL",
 #     "PPI": "PPIACO",
@@ -26,6 +27,7 @@ VOLUME = "Volume"
 #     "PERSONAL_INCOME": "PI",
 #     "PERSONAL_SPENDING": "PCE"
 # }
+
 MACRO_TICKERS = {
     "SPY500": "SPY",
 }
@@ -52,4 +54,10 @@ EQUITY_TICKERS = {
     "META": "META",
     "TSLA": "TSLA",
     "NVDA": "NVDA",
+}
+
+DATASETS = {
+    "macro": (MACRO_DIR, MACRO_TICKERS),
+    "index": (INDEX_DIR, INDEX_TICKERS),
+    "equities": (EQUITY_DIR, EQUITY_TICKERS),
 }

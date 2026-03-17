@@ -9,6 +9,7 @@ import yfinance as yf
 
 from src.util.util import (
     DATA_DIR,
+    DATASETS,
     EQUITY_DIR,
     EQUITY_TICKERS,
     INDEX_DIR,
@@ -168,13 +169,8 @@ def yahoo_main(today_date=None, run_uuid=None, save_location="local", file_exten
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
 
-    datasets = {
-        "macro": (MACRO_DIR, MACRO_TICKERS),
-        "index": (INDEX_DIR, INDEX_TICKERS),
-        "equities": (EQUITY_DIR, EQUITY_TICKERS),
-    }
 
-    for dataset_name, (dataset_dir_name, tickers) in datasets.items():
+    for dataset_name, (dataset_dir_name, tickers) in DATASETS.items():
         dataset_dir = base_dir / dataset_dir_name / today_date / run_uuid
 
         data = extract_ticker_data(ticker_list=tickers)
