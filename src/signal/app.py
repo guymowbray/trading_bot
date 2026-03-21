@@ -1,8 +1,11 @@
 
 import pandas as pd
 
-from src.util.util import MA200, MA50, MACRO_DIR, INDEX_DIR, EQUITY_DIR, VOLUME
-from src.signal.extractor import load_metadata_files_locally, load_market_data_batches_using_metadata
+from src.signal.extractor import (
+    load_market_data_batches_using_metadata,
+    load_metadata_files_locally,
+)
+from src.util.util import EQUITY_DIR, INDEX_DIR, MA50, MA200, MACRO_DIR, VOLUME
 
 
 def calculate_moving_averages(data: pd.DataFrame):

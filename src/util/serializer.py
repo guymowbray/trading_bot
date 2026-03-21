@@ -1,5 +1,5 @@
-from io import BytesIO
 import json
+from io import BytesIO
 
 
 class ParquetSerializer:
@@ -9,10 +9,11 @@ class ParquetSerializer:
         buffer = BytesIO()
 
         df.to_parquet(
+            # Hard coded to KISS. 
             buffer,
             engine="pyarrow",
             compression="snappy",
-            index=False
+            index=True
         )
 
         buffer.seek(0)

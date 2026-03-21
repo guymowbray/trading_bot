@@ -5,10 +5,6 @@ from typing import Dict
 
 import pandas as pd
 
-
-from src.util.storage.serializer import ParquetSerializer, JsonSerializer
-from util.storage import serializer
-from util.storage.s3 import LocalStorage, S3Storage
 from market_data.extractor.yahoo import get_ticker_data
 from src.util.util import (
     DATA_DIR,
@@ -18,6 +14,8 @@ from src.util.util import (
     MA50,
     MA200,
 )
+from util.serializer import JsonSerializer, ParquetSerializer
+from util.storage import LocalStorage, S3Storage
 
 
 class TickerDataQuery:
