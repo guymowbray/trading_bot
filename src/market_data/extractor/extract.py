@@ -103,14 +103,6 @@ def generate_execution_uuid() -> str:
     return f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}"
 
 
-def save_pandas_dataframe(data: pd.DataFrame, filename: str, base_dir: str, file_extension: str):
-    os.makedirs(base_dir, exist_ok=True)
-    if file_extension == "parquet":
-        data.to_parquet(f"{base_dir}/{filename}.{file_extension}")
-    else:
-        raise ValueError(f"Unsupported file extension: {file_extension}")
-
-
 def save_file(df, storage, serializer, path):
 
     data = serializer.serialize(df)

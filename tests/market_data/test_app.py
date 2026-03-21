@@ -15,7 +15,6 @@ from market_data.extractor.extract import (
     create_dataset_metadata,
     generate_execution_uuid,
     save_metadata_file,
-    save_pandas_dataframe,
     save_raw_data,
 )
 from util.serializer import JsonSerializer, ParquetSerializer
@@ -59,48 +58,6 @@ def mock_test_s3_bucket(bucket_name = "test-placeholder-bucket", region_name="us
 @patch("src.market_data.extractor.yahoo.get_ticker_data")
 def test_app_extract_main_works_correctly(mock_get_ticker_data, mock_uuid, tmp_path):
     assert True
-
-
-def test_save_pandas_dataframe_successfully(tmp_path):
-    rng = np.random.default_rng(42)
-
-    data = pd.DataFrame(
-        {
-            "A": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-            "B": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-        }
-    )
-    target_dir = tmp_path
-
-    save_pandas_dataframe(
-        data=data, filename="test_dataframe", base_dir=tmp_path, file_extension="parquet"
-    )
-
-    saved_file = tmp_path / "test_dataframe.parquet"
-
-    assert saved_file.exists()
-    assert (target_dir / "test_dataframe.parquet").exists()
-
-    loaded_data = pd.read_parquet(saved_file)
-    assert_frame_equal(data, loaded_data, check_dtype=True)
-
-
-def test_save_pandas_dataframe_unsupported_extension(tmp_path):
-    rng = np.random.default_rng(42)
-
-    data = pd.DataFrame(
-        {
-            "A": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-            "B": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-        }
-    )
-
-    with pytest.raises(ValueError) as error_info:
-        save_pandas_dataframe(
-            data=data, filename="test_dataframe", base_dir=tmp_path, file_extension="FAKE_EXTENSION"
-        )
-
-    assert "Unsupported file extension: FAKE_EXTENSION" in str(error_info.value)
 
 
 @pytest.mark.parametrize(
