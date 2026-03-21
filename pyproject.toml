@@ -13,6 +13,7 @@ dependencies = [
     "scikit-learn",
     "freezegun",
     "pyarrow",
+    "boto3",
 ]
 
 [project.optional-dependencies]

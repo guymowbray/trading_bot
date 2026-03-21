@@ -8,7 +8,7 @@ from pandas.testing import assert_frame_equal
 import pytest
 from freezegun import freeze_time
 
-from src.market_data.extractor.yahoo import (
+from market_data.extractor.extract import (
     create_dataset_metadata,
     generate_execution_uuid,
     save_metadata_file,
