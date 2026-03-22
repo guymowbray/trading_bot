@@ -41,12 +41,9 @@ Random lunchtime entries
 
 
 def main():
-    save_location ="local" # or "local"
+    save_location = "local"  # or "local"
     # save_location ="s3" # or "local"
-    extract_main(
-        save_location=save_location,
-        file_extension="parquet"
-    )
+    extract_main(save_location=save_location, file_extension="parquet")
 
 
 if __name__ == "__main__":

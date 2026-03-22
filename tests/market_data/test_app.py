@@ -1,10 +1,9 @@
-from io import BytesIO
 import json
 import os
+from io import BytesIO
 from unittest.mock import patch
 
 import boto3
-import numpy as np
 import pandas as pd
 import pytest
 from freezegun import freeze_time
@@ -36,19 +35,13 @@ def mock_uuid():
 
 
 @pytest.fixture
-def mock_test_s3_bucket(bucket_name = "test-placeholder-bucket", region_name="us-west-1"):
+def mock_test_s3_bucket(bucket_name="test-placeholder-bucket", region_name="us-west-1"):
 
     with mock_aws():
-        s3 = boto3.client(
-            "s3",
-            region_name=region_name
-        )
+        s3 = boto3.client("s3", region_name=region_name)
 
         s3.create_bucket(
-            Bucket=bucket_name,
-            CreateBucketConfiguration={
-                "LocationConstraint": region_name
-            }
+            Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": region_name}
         )
 
         yield s3, bucket_name, region_name
@@ -84,7 +77,7 @@ def test_save_raw_data_to_s3_successfully(dummy_data, mock_test_s3_bucket):
 
     ticker_name_1 = "TEST_TICKER_1"
     ticker_name_2 = "TEST_TICKER_2"
-    
+
     execution_uuid = "TEST_UUID"
 
     file_extension_name = "parquet"
@@ -96,26 +89,20 @@ def test_save_raw_data_to_s3_successfully(dummy_data, mock_test_s3_bucket):
 
     save_raw_data(
         payload=payload,
-        base_dir="tmp_path", 
-        execution_uuid=execution_uuid, 
-        file_extension=file_extension_name, 
+        base_dir="tmp_path",
+        execution_uuid=execution_uuid,
+        file_extension=file_extension_name,
         storage_client=S3Storage(bucket=bucket_name),
-        serializer=ParquetSerializer()
+        serializer=ParquetSerializer(),
     )
     saved_file_1 = f"tmp_path/{ticker_name_1}_{execution_uuid}.{file_extension_name}"
     saved_file_2 = f"tmp_path/{ticker_name_2}_{execution_uuid}.{file_extension_name}"
 
-    obj_1 = s3_client.get_object(
-            Bucket=bucket_name,
-            Key=saved_file_1
-        )
-    obj_2 = s3_client.get_object(
-            Bucket=bucket_name,
-            Key=saved_file_2
-        )
+    obj_1 = s3_client.get_object(Bucket=bucket_name, Key=saved_file_1)
+    obj_2 = s3_client.get_object(Bucket=bucket_name, Key=saved_file_2)
 
-    loaded_data_1 = pd.read_parquet(BytesIO(obj_1['Body'].read()))
-    loaded_data_2 = pd.read_parquet(BytesIO(obj_2['Body'].read()))
+    loaded_data_1 = pd.read_parquet(BytesIO(obj_1["Body"].read()))
+    loaded_data_2 = pd.read_parquet(BytesIO(obj_2["Body"].read()))
 
     assert_frame_equal(loaded_data_1, dummy_data, check_dtype=True)
     assert_frame_equal(loaded_data_2, dummy_data, check_dtype=True)
@@ -134,11 +121,11 @@ def test_save_raw_data_to_local_dir_successfully(dummy_data, tmp_path):
 
     save_raw_data(
         payload=payload,
-        base_dir=tmp_path, 
-        execution_uuid="TEST_UUID", 
-        file_extension="parquet", 
-        storage_client=storage_client, 
-        serializer=parquet_serializer
+        base_dir=tmp_path,
+        execution_uuid="TEST_UUID",
+        file_extension="parquet",
+        storage_client=storage_client,
+        serializer=parquet_serializer,
     )
     saved_file_1 = tmp_path / "TEST_TICKER_1_TEST_UUID.parquet"
     saved_file_2 = tmp_path / "TEST_TICKER_2_TEST_UUID.parquet"
@@ -155,12 +142,12 @@ def test_save_raw_data_to_local_dir_successfully(dummy_data, tmp_path):
 def test_save_raw_data_missing_payload_raises_error(tmp_path):
     with pytest.raises(ValueError) as error_info:
         save_raw_data(
-            payload=None, 
-            base_dir=tmp_path, 
-            execution_uuid="TEST_UUID", 
+            payload=None,
+            base_dir=tmp_path,
+            execution_uuid="TEST_UUID",
             file_extension="parquet",
             storage_client=LocalStorage(base_path=tmp_path),
-            serializer=ParquetSerializer()
+            serializer=ParquetSerializer(),
         )
 
     assert "Missing dict with ticker and data payload missing" in str(error_info.value)
@@ -182,11 +169,11 @@ def test_save_metadata_file_locally_successfully(tmp_path):
     }
 
     save_metadata_file(
-        metadata_payload=metadata, 
-        base_dir=tmp_path, 
+        metadata_payload=metadata,
+        base_dir=tmp_path,
         execution_uuid="TEST_EXECUTION_ID",
         storage_client=LocalStorage(base_path=tmp_path),
-        serializer=JsonSerializer()
+        serializer=JsonSerializer(),
     )
 
     saved_file = tmp_path / "metadata_TEST_EXECUTION_ID.json"
@@ -217,21 +204,18 @@ def test_save_metadata_file_to_s3_successfully(tmp_path, mock_test_s3_bucket):
     }
 
     save_metadata_file(
-        metadata_payload=metadata, 
-        base_dir=tmp_path, 
+        metadata_payload=metadata,
+        base_dir=tmp_path,
         execution_uuid="TEST_EXECUTION_ID",
         storage_client=S3Storage(bucket=bucket_name),
-        serializer=JsonSerializer()
+        serializer=JsonSerializer(),
     )
 
     saved_file = tmp_path / "metadata_TEST_EXECUTION_ID.json"
 
-    obj = s3_client.get_object(
-            Bucket=bucket_name,
-            Key=f"{saved_file}"
-        )
+    obj = s3_client.get_object(Bucket=bucket_name, Key=f"{saved_file}")
 
-    loaded_metadata = json.load(BytesIO(obj['Body'].read()))
+    loaded_metadata = json.load(BytesIO(obj["Body"].read()))
 
     assert loaded_metadata == metadata
 

@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 from src.signal.extractor import (
@@ -33,12 +32,11 @@ def calculate_signals(market_data_batch: dict[str, pd.DataFrame]) -> dict[str, p
     payload = {}
 
     for ticker_name, data in market_data_batch.items():
-
         data = calculate_moving_averages(data)
         data = calculate_percent_away_from_ma(data)
-        
+
         payload[ticker_name] = data
-        
+
         return payload
 
 
@@ -48,13 +46,19 @@ def signal_app(execution_id: str, execution_date: str):
     loaded_index_metadata = load_metadata_files_locally(execution_id, execution_date, INDEX_DIR)
     loaded_equities_metadata = load_metadata_files_locally(execution_id, execution_date, EQUITY_DIR)
 
-    macro_market_data_batch = load_market_data_batches_using_metadata(loaded_macro_metadata, "parquet")
-    index_market_data_batch = load_market_data_batches_using_metadata(loaded_index_metadata, "parquet")
-    equities_market_data_batch = load_market_data_batches_using_metadata(loaded_equities_metadata, "parquet")
+    macro_market_data_batch = load_market_data_batches_using_metadata(
+        loaded_macro_metadata, "parquet"
+    )
+    index_market_data_batch = load_market_data_batches_using_metadata(
+        loaded_index_metadata, "parquet"
+    )
+    equities_market_data_batch = load_market_data_batches_using_metadata(
+        loaded_equities_metadata, "parquet"
+    )
 
-    processed_macro_data = calculate_signals(macro_market_data_batch)
-    processed_index_data = calculate_signals(index_market_data_batch)
-    processed_equities_data = calculate_signals(equities_market_data_batch)
+    _processed_macro_data = calculate_signals(macro_market_data_batch)
+    _processed_index_data = calculate_signals(index_market_data_batch)
+    _processed_equities_data = calculate_signals(equities_market_data_batch)
 
 
 if __name__ == "__main__":

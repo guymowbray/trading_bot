@@ -1,4 +1,3 @@
-import os
 import uuid
 from datetime import UTC, datetime
 from typing import Dict
@@ -78,7 +77,9 @@ def check_current_price_above_MA50(data: pd.DataFrame) -> bool:
         return False
 
 
-def extract_ticker_data(ticker_list: dict = INDEX_TICKERS,):
+def extract_ticker_data(
+    ticker_list: dict = INDEX_TICKERS,
+):
     """
     Extract index data.
     """
@@ -107,14 +108,16 @@ def save_file(df, storage, serializer, path):
 
     data = serializer.serialize(df)
 
-    storage.write_bytes(
-        data,
-        path
-    )
+    storage.write_bytes(data, path)
 
 
 def save_raw_data(
-    payload: Dict[str, pd.DataFrame], base_dir: str, execution_uuid: str, file_extension: str, storage_client: str, serializer
+    payload: Dict[str, pd.DataFrame],
+    base_dir: str,
+    execution_uuid: str,
+    file_extension: str,
+    storage_client: str,
+    serializer,
 ):
     # TODO: validate this properly, maybe make a MarketData model.
     # also should do validation elsewhere.
@@ -130,7 +133,7 @@ def save_raw_data(
             df=data,
             storage=storage_client,
             serializer=serializer,
-            path=f"{base_dir}/{fname}.{file_extension}"
+            path=f"{base_dir}/{fname}.{file_extension}",
         )
 
     return None
@@ -149,14 +152,16 @@ def create_dataset_metadata(data, dataset_name, execution_uuid, dataset_dir, fil
     }
 
 
-def save_metadata_file(metadata_payload: dict, base_dir: str, execution_uuid: str, storage_client, serializer):
+def save_metadata_file(
+    metadata_payload: dict, base_dir: str, execution_uuid: str, storage_client, serializer
+):
     filename = f"metadata_{execution_uuid}.json"
 
     save_file(
         df=metadata_payload,
         storage=storage_client,
         serializer=serializer,
-        path=f"{base_dir}/{filename}"
+        path=f"{base_dir}/{filename}",
     )
 
 
@@ -177,7 +182,6 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
 
-
     for dataset_name, (dataset_dir_name, tickers) in DATASETS.items():
         if save_location == "local":
             dataset_dir = base_dir / dataset_dir_name / today_date / run_uuid
@@ -195,7 +199,7 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
             execution_uuid=run_uuid,
             file_extension=file_extension,
             storage_client=storage_client,
-            serializer=parquet_serializer
+            serializer=parquet_serializer,
         )
 
         metadata = create_dataset_metadata(
@@ -211,5 +215,5 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
             base_dir=dataset_dir,
             execution_uuid=run_uuid,
             storage_client=storage_client,
-            serializer=JsonSerializer()
+            serializer=JsonSerializer(),
         )
