@@ -14,7 +14,7 @@ from market_data.extractor.extract import (
     create_dataset_metadata,
     generate_execution_uuid,
     save_metadata_file,
-    save_raw_data,
+    save_dataset_batch,
 )
 from util.serializer.json import JsonSerializer
 from util.serializer.parquet import ParquetSerializer
@@ -89,11 +89,10 @@ def test_save_raw_data_to_s3_successfully(dummy_data, mock_test_s3_bucket):
         ticker_name_2: dummy_data,
     }
 
-    save_raw_data(
+    save_dataset_batch(
         payload=payload,
         base_dir="tmp_path",
         execution_uuid=execution_uuid,
-        file_extension=file_extension_name,
         storage_client=S3Storage(bucket=bucket_name),
         serializer=ParquetSerializer(),
     )
@@ -121,11 +120,10 @@ def test_save_raw_data_to_local_dir_successfully(dummy_data, tmp_path):
     storage_client = LocalStorage(base_path=tmp_path)
     parquet_serializer = ParquetSerializer()
 
-    save_raw_data(
+    save_dataset_batch(
         payload=payload,
         base_dir=tmp_path,
         execution_uuid="TEST_UUID",
-        file_extension="parquet",
         storage_client=storage_client,
         serializer=parquet_serializer,
     )
@@ -143,11 +141,10 @@ def test_save_raw_data_to_local_dir_successfully(dummy_data, tmp_path):
 
 def test_save_raw_data_missing_payload_raises_error(tmp_path):
     with pytest.raises(ValueError) as error_info:
-        save_raw_data(
+        save_dataset_batch(
             payload=None,
             base_dir=tmp_path,
             execution_uuid="TEST_UUID",
-            file_extension="parquet",
             storage_client=LocalStorage(base_path=tmp_path),
             serializer=ParquetSerializer(),
         )
