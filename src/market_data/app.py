@@ -1,4 +1,4 @@
-from src.market_data.extractor.yahoo import yahoo_main
+from market_data.extractor.extract import extract_main
 
 """
 Step 3 — Risk Management (Most Important)
@@ -41,7 +41,9 @@ Random lunchtime entries
 
 
 def main():
-    yahoo_main()
+    save_location = "local"  # or "local"
+    # save_location ="s3" # or "local"
+    extract_main(save_location=save_location, file_extension="parquet")
 
 
 if __name__ == "__main__":

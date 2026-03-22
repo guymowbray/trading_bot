@@ -13,12 +13,14 @@ dependencies = [
     "scikit-learn",
     "freezegun",
     "pyarrow",
+    "boto3",
+    "moto",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "ruff"
+    "ruff",
 ]
 
 [tool.ruff]

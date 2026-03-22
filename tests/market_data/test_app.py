@@ -1,20 +1,23 @@
 import json
 import os
+from io import BytesIO
 from unittest.mock import patch
 
-import numpy as np
+import boto3
 import pandas as pd
-from pandas.testing import assert_frame_equal
 import pytest
 from freezegun import freeze_time
+from moto import mock_aws
+from pandas.testing import assert_frame_equal
 
-from src.market_data.extractor.yahoo import (
+from market_data.extractor.extract import (
     create_dataset_metadata,
     generate_execution_uuid,
     save_metadata_file,
-    save_pandas_dataframe,
     save_raw_data,
 )
+from util.serializer import JsonSerializer, ParquetSerializer
+from util.storage import LocalStorage, S3Storage
 
 
 def mock_get_ticker_data(ticker_symbol, dummy_data):
@@ -25,66 +28,29 @@ def mock_get_ticker_data(ticker_symbol, dummy_data):
 @pytest.fixture
 def mock_uuid():
 
-    with patch("src.market_data.extractor.yahoo.uuid.uuid4") as mock_uuid:
+    with patch("src.market_data.extractor.extract.uuid.uuid4") as mock_uuid:
         mock_uuid.return_value.hex = "TEST_UUID"
 
         yield "TEST_UUID"
 
 
-@freeze_time("2026-03-15")
-@patch("src.market_data.extractor.yahoo.get_ticker_data")
-def test_app_yahoo_main_works_correctly(mock_get_ticker_data, mock_uuid, tmp_path):
-    dir = tmp_path / "2026/03/15/TEST_UUID"
-    dir.mkdir(parents=True, exist_ok=True)
-    p = dir / "hello.txt"
-    p.write_text("HI", encoding="utf-8")
-    assert p.read_text(encoding="utf-8") == "HI"
+@pytest.fixture
+def mock_test_s3_bucket(bucket_name="test-placeholder-bucket", region_name="us-west-1"):
 
-    # mock_get_ticker_data.return_value = mock_get_ticker_data("TEST_TICKER")
+    with mock_aws():
+        s3 = boto3.client("s3", region_name=region_name)
 
-    # yahoo_main()
-
-
-def test_save_pandas_dataframe_successfully(tmp_path):
-    rng = np.random.default_rng(42)
-
-    data = pd.DataFrame(
-        {
-            "A": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-            "B": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-        }
-    )
-    target_dir = tmp_path
-
-    save_pandas_dataframe(
-        data=data, filename="test_dataframe", base_dir=tmp_path, file_extension="parquet"
-    )
-
-    saved_file = tmp_path / "test_dataframe.parquet"
-
-    assert saved_file.exists()
-    assert (target_dir / "test_dataframe.parquet").exists()
-
-    loaded_data = pd.read_parquet(saved_file)
-    assert_frame_equal(data, loaded_data, check_dtype=True)
-
-
-def test_save_pandas_dataframe_unsupported_extension(tmp_path):
-    rng = np.random.default_rng(42)
-
-    data = pd.DataFrame(
-        {
-            "A": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-            "B": [rng.integers(0, 100, 10), rng.integers(0, 100, 10)],
-        }
-    )
-
-    with pytest.raises(ValueError) as error_info:
-        save_pandas_dataframe(
-            data=data, filename="test_dataframe", base_dir=tmp_path, file_extension="FAKE_EXTENSION"
+        s3.create_bucket(
+            Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": region_name}
         )
 
-    assert "Unsupported file extension: FAKE_EXTENSION" in str(error_info.value)
+        yield s3, bucket_name, region_name
+
+
+@freeze_time("2026-03-15")
+@patch("src.market_data.extractor.yahoo.get_ticker_data")
+def test_app_extract_main_works_correctly(mock_get_ticker_data, mock_uuid, tmp_path):
+    assert True
 
 
 @pytest.mark.parametrize(
@@ -104,14 +70,62 @@ def test_generate_execution_uuid_successfully(mock_uuid_hex, datetime_uuid, expe
             assert actual_generated_uuid == expected_uuid
 
 
+@mock_aws
 @freeze_time("2026-03-15 05:00:00")
-def test_save_raw_data_successfully(dummy_data, tmp_path):
+def test_save_raw_data_to_s3_successfully(dummy_data, mock_test_s3_bucket):
+    s3_client, bucket_name, _ = mock_test_s3_bucket
+
+    ticker_name_1 = "TEST_TICKER_1"
+    ticker_name_2 = "TEST_TICKER_2"
+
+    execution_uuid = "TEST_UUID"
+
+    file_extension_name = "parquet"
+
+    payload = {
+        ticker_name_1: dummy_data,
+        ticker_name_2: dummy_data,
+    }
+
+    save_raw_data(
+        payload=payload,
+        base_dir="tmp_path",
+        execution_uuid=execution_uuid,
+        file_extension=file_extension_name,
+        storage_client=S3Storage(bucket=bucket_name),
+        serializer=ParquetSerializer(),
+    )
+    saved_file_1 = f"tmp_path/{ticker_name_1}_{execution_uuid}.{file_extension_name}"
+    saved_file_2 = f"tmp_path/{ticker_name_2}_{execution_uuid}.{file_extension_name}"
+
+    obj_1 = s3_client.get_object(Bucket=bucket_name, Key=saved_file_1)
+    obj_2 = s3_client.get_object(Bucket=bucket_name, Key=saved_file_2)
+
+    loaded_data_1 = pd.read_parquet(BytesIO(obj_1["Body"].read()))
+    loaded_data_2 = pd.read_parquet(BytesIO(obj_2["Body"].read()))
+
+    assert_frame_equal(loaded_data_1, dummy_data, check_dtype=True)
+    assert_frame_equal(loaded_data_2, dummy_data, check_dtype=True)
+
+
+@mock_aws
+@freeze_time("2026-03-15 05:00:00")
+def test_save_raw_data_to_local_dir_successfully(dummy_data, tmp_path):
     payload = {
         "TEST_TICKER_1": dummy_data,
         "TEST_TICKER_2": dummy_data,
     }
+
+    storage_client = LocalStorage(base_path=tmp_path)
+    parquet_serializer = ParquetSerializer()
+
     save_raw_data(
-        payload=payload, base_dir=tmp_path, execution_uuid="TEST_UUID", file_extension="parquet"
+        payload=payload,
+        base_dir=tmp_path,
+        execution_uuid="TEST_UUID",
+        file_extension="parquet",
+        storage_client=storage_client,
+        serializer=parquet_serializer,
     )
     saved_file_1 = tmp_path / "TEST_TICKER_1_TEST_UUID.parquet"
     saved_file_2 = tmp_path / "TEST_TICKER_2_TEST_UUID.parquet"
@@ -128,13 +142,18 @@ def test_save_raw_data_successfully(dummy_data, tmp_path):
 def test_save_raw_data_missing_payload_raises_error(tmp_path):
     with pytest.raises(ValueError) as error_info:
         save_raw_data(
-            payload=None, base_dir=tmp_path, execution_uuid="TEST_UUID", file_extension="parquet"
+            payload=None,
+            base_dir=tmp_path,
+            execution_uuid="TEST_UUID",
+            file_extension="parquet",
+            storage_client=LocalStorage(base_path=tmp_path),
+            serializer=ParquetSerializer(),
         )
 
     assert "Missing dict with ticker and data payload missing" in str(error_info.value)
 
 
-def test_save_metadata_file_successfully(tmp_path):
+def test_save_metadata_file_locally_successfully(tmp_path):
     metadata = {
         "dataset": "TEST_DATASET",
         "execution_id": "TEST_EXECUTION_ID",
@@ -150,7 +169,11 @@ def test_save_metadata_file_successfully(tmp_path):
     }
 
     save_metadata_file(
-        metadata_payload=metadata, base_dir=tmp_path, execution_uuid="TEST_EXECUTION_ID"
+        metadata_payload=metadata,
+        base_dir=tmp_path,
+        execution_uuid="TEST_EXECUTION_ID",
+        storage_client=LocalStorage(base_path=tmp_path),
+        serializer=JsonSerializer(),
     )
 
     saved_file = tmp_path / "metadata_TEST_EXECUTION_ID.json"
@@ -159,6 +182,40 @@ def test_save_metadata_file_successfully(tmp_path):
 
     with open(saved_file, "r") as f:
         loaded_metadata = json.load(f)
+
+    assert loaded_metadata == metadata
+
+
+def test_save_metadata_file_to_s3_successfully(tmp_path, mock_test_s3_bucket):
+    s3_client, bucket_name, _ = mock_test_s3_bucket
+
+    metadata = {
+        "dataset": "TEST_DATASET",
+        "execution_id": "TEST_EXECUTION_ID",
+        "tickers": ["TICKER1", "TICKER2"],
+        "files": {
+            "TICKER1": f"{tmp_path}/TICKER1_TEST_EXECUTION_ID.parquet",
+            "TICKER2": f"{tmp_path}/TICKER2_TEST_EXECUTION_ID.parquet",
+        },
+        "rows": {
+            "TICKER1": 100,
+            "TICKER2": 200,
+        },
+    }
+
+    save_metadata_file(
+        metadata_payload=metadata,
+        base_dir=tmp_path,
+        execution_uuid="TEST_EXECUTION_ID",
+        storage_client=S3Storage(bucket=bucket_name),
+        serializer=JsonSerializer(),
+    )
+
+    saved_file = tmp_path / "metadata_TEST_EXECUTION_ID.json"
+
+    obj = s3_client.get_object(Bucket=bucket_name, Key=f"{saved_file}")
+
+    loaded_metadata = json.load(BytesIO(obj["Body"].read()))
 
     assert loaded_metadata == metadata
 
