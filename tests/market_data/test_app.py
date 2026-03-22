@@ -13,8 +13,8 @@ from pandas.testing import assert_frame_equal
 from market_data.extractor.extract import (
     create_dataset_metadata,
     generate_execution_uuid,
-    save_metadata_file,
     save_dataset_batch,
+    save_metadata_file,
 )
 from util.serializer.json import JsonSerializer
 from util.serializer.parquet import ParquetSerializer
@@ -47,12 +47,6 @@ def mock_test_s3_bucket(bucket_name="test-placeholder-bucket", region_name="us-w
         )
 
         yield s3, bucket_name, region_name
-
-
-@freeze_time("2026-03-15")
-@patch("src.market_data.extractor.yahoo.get_ticker_data")
-def test_app_extract_main_works_correctly(mock_get_ticker_data, mock_uuid, tmp_path):
-    assert True
 
 
 @pytest.mark.parametrize(

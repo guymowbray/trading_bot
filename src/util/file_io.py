@@ -1,6 +1,6 @@
-import pandas as pd
-
 from typing import Dict
+
+import pandas as pd
 
 
 def save_file(df, storage, serializer, path: str):
@@ -34,10 +34,11 @@ def save_dataset_batch(
             df=data,
             storage=storage_client,
             serializer=serializer,
-            path=f"{base_dir}/{execution_uuid}{fname}.{serializer.extension}",
+            path=f"{base_dir}/{fname}.{serializer.extension}",
         )
 
     return None
+
 
 def create_dataset_metadata(data, dataset_name, execution_uuid, dataset_dir, file_extension):
     return {
@@ -50,6 +51,7 @@ def create_dataset_metadata(data, dataset_name, execution_uuid, dataset_dir, fil
         },
         "rows": {ticker: len(df) for ticker, df in data.items()},
     }
+
 
 def save_metadata_file(
     metadata_payload: dict, base_dir: str, execution_uuid: str, storage_client, serializer

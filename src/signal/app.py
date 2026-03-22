@@ -2,16 +2,16 @@ from datetime import UTC, datetime
 
 import pandas as pd
 
-
-from src.signal.pipeline import SIGNAL_PIPELINE
 from src.signal.extractor import (
     load_market_data_batches_using_metadata,
 )
+from src.signal.pipeline import SIGNAL_PIPELINE
 from src.util.util import (
     DATA_DIR,
     DATA_DIR_LOCAL,
     DATASETS,
     SIGNALS_DIR,
+    create_and_validate_s3_filepath,
     generate_execution_uuid,
     parse_execution_id,
 )
@@ -22,7 +22,9 @@ from util.storage.local import LocalStorage
 from util.storage.s3 import S3_BUCKET_NAME_PROD, S3Storage
 
 
-def calculate_signals_batch(market_data_batch: dict[str, pd.DataFrame], signal_pipeline) -> dict[str, pd.DataFrame]:
+def calculate_signals_batch(
+    market_data_batch: dict[str, pd.DataFrame], signal_pipeline
+) -> dict[str, pd.DataFrame]:
     payload = {}
 
     for ticker_name, data in market_data_batch.items():
@@ -39,9 +41,11 @@ def signal_app(previous_execution_id: str, save_location: str):
     parquet_serializer = ParquetSerializer()
     json_serializer = JsonSerializer()
 
+    # Need this from previous data during the market_data process
     processed_execution_uuid = parse_execution_id(previous_execution_id)
     previous_execution_date = processed_execution_uuid["date"]
 
+    # Create for signal process which is independent.
     execution_uuid = generate_execution_uuid()
     today_date = datetime.now(UTC).strftime("%Y/%m/%d")
 
@@ -69,9 +73,16 @@ def signal_app(previous_execution_id: str, save_location: str):
         # Later on we can make signal_pipeline configurable at config level.
         processed_macro_data = calculate_signals_batch(macro_market_data_batch, SIGNAL_PIPELINE)
 
+        dir = create_and_validate_s3_filepath(
+            base_dir=SIGNALS_DIR,
+            market_data_type=dataset_dir_name,
+            today_date=today_date,
+            execution_uuid=execution_uuid,
+        )
+
         save_dataset_batch(
             payload=processed_macro_data,
-            base_dir=f"{SIGNALS_DIR}/{dataset_dir_name}/{today_date}{execution_uuid}",
+            base_dir=dir,
             execution_uuid=execution_uuid,
             storage_client=storage_client,
             serializer=parquet_serializer,
@@ -81,18 +92,17 @@ def signal_app(previous_execution_id: str, save_location: str):
             data=tickers,
             dataset_name=dataset_name,
             execution_uuid=execution_uuid,
-            dataset_dir=f"{SIGNALS_DIR}/{dataset_dir_name}{execution_uuid}",
-            file_extension=json_serializer.extension
+            dataset_dir=dir,
+            file_extension=json_serializer.extension,
         )
 
         save_metadata_file(
             metadata_payload=metadata,
-            base_dir=f"{SIGNALS_DIR}/{dataset_dir_name}/{today_date}{execution_uuid}",
+            base_dir=dir,
             execution_uuid=execution_uuid,
             storage_client=storage_client,
             serializer=json_serializer,
         )
-
 
 
 if __name__ == "__main__":

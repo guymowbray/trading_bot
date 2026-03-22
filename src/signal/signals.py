@@ -28,8 +28,8 @@ def calculate_percent_away_from_ma(data: pd.DataFrame):
     return data
 
 
-def calculate_signals_for_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def calculate_signals_for_dataframe(data: pd.DataFrame) -> pd.DataFrame:
     data = calculate_moving_averages(data)
     data = calculate_percent_away_from_ma(data)
 
-    return df
+    return data

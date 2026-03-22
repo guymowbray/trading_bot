@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 from market_data.extractor.yahoo import get_ticker_data
@@ -15,7 +14,7 @@ from util.file_io import create_dataset_metadata, save_dataset_batch, save_metad
 from util.serializer.json import JsonSerializer
 from util.serializer.parquet import ParquetSerializer
 from util.storage.local import LocalStorage
-from util.storage.s3 import S3Storage
+from util.storage.s3 import S3_BUCKET_NAME_PROD, S3Storage
 
 
 class TickerDataQuery:
@@ -106,7 +105,7 @@ def extract_main(today_date=None, run_uuid=None, save_location="local"):
 
     elif save_location == "s3":
         base_dir = DATA_DIR
-        storage_client = S3Storage(bucket="trading-bot-data-prod")
+        storage_client = S3Storage(bucket=S3_BUCKET_NAME_PROD)
 
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
@@ -135,7 +134,6 @@ def extract_main(today_date=None, run_uuid=None, save_location="local"):
             data=data,
             dataset_name=dataset_name,
             execution_uuid=run_uuid,
-            date=date,
             dataset_dir=dataset_dir,
             file_extension=json_serializer.extension,
         )

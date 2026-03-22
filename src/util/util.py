@@ -1,6 +1,7 @@
+import re
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-import uuid
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR_LOCAL = PROJECT_ROOT / "data"
@@ -89,13 +90,22 @@ def parse_execution_id(execution_id):
 
     date_part, time_part, uuid = execution_id.split("_")
 
-    formatted_date = datetime.strptime(
-                date_part,
-                "%Y%m%d"
-        ).strftime("%Y/%m/%d")
+    formatted_date = datetime.strptime(date_part, "%Y%m%d").strftime("%Y/%m/%d")
 
-    return {
-        "date": formatted_date,
-        "time": time_part,
-        "uuid": uuid
-    }
+    return {"date": formatted_date, "time": time_part, "uuid": uuid}
+
+
+def create_and_validate_s3_filepath(base_dir, market_data_type, today_date, execution_uuid):
+    """
+    eg. signals/equities/2026/03/22/20260322_203402_dcb571f4f795490b83eb63e47815e52d
+
+    Just add /{filename} after.
+    """
+    file_path = f"{base_dir}/{market_data_type}/{today_date}/{execution_uuid}"
+
+    pattern = r"[a-zA-Z]+/[a-zA-Z]+/\d{4}/\d{2}/\d{2}/\d{8}_\d{6}_[a-f0-9]{32}$"
+
+    if not re.match(pattern, file_path):
+        raise ValueError("Invalid execution_id format")
+
+    return file_path
