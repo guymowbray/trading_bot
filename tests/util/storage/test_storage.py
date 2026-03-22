@@ -1,7 +1,8 @@
 import boto3
 from moto import mock_aws
 
-from src.util.storage import LocalStorage, S3Storage
+from util.storage.local import LocalStorage
+from util.storage.s3 import S3Storage
 
 
 def test_local_storage_write_and_read_successfully(tmp_path):
@@ -21,7 +22,7 @@ def test_local_storage_write_and_read_successfully(tmp_path):
 def test_s3_write_bytes():
     region = "us-west-1"
     bucket_name = "test-bucket"
-    
+
     s3 = boto3.client("s3", region_name=region)
 
     s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": region})

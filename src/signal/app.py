@@ -2,9 +2,22 @@ import pandas as pd
 
 from src.signal.extractor import (
     load_market_data_batches_using_metadata,
-    load_metadata_files_locally,
 )
-from src.util.util import EQUITY_DIR, INDEX_DIR, MA50, MA200, MACRO_DIR, VOLUME
+from src.util.util import (
+    DATA_DIR,
+    DATA_DIR_LOCAL,
+    EQUITY_DIR,
+    INDEX_DIR,
+    MA50,
+    MA200,
+    MACRO_DIR,
+    VOLUME,
+)
+from util.file_io import load_file
+from util.serializer.json import JsonSerializer
+from util.serializer.parquet import ParquetSerializer
+from util.storage.local import LocalStorage
+from util.storage.s3 import S3_BUCKET_NAME_PROD, S3Storage
 
 
 def calculate_moving_averages(data: pd.DataFrame):
@@ -40,20 +53,45 @@ def calculate_signals(market_data_batch: dict[str, pd.DataFrame]) -> dict[str, p
         return payload
 
 
-def signal_app(execution_id: str, execution_date: str):
+def signal_app(execution_id: str, execution_date: str, save_location: str):
+    parquet_serializer = ParquetSerializer()
+    json_serializer = JsonSerializer()
+
+    if save_location == "local":
+        storage_client = LocalStorage()
+        base_dir = DATA_DIR_LOCAL
+
+    elif save_location == "s3":
+        storage_client = S3Storage(bucket=S3_BUCKET_NAME_PROD)
+        base_dir = DATA_DIR
+    else:
+        raise ValueError(f"Unsupported save location: {save_location}")
+
     # TODO: Can dry this up somehow but dont want to optimise now.
-    loaded_macro_metadata = load_metadata_files_locally(execution_id, execution_date, MACRO_DIR)
-    loaded_index_metadata = load_metadata_files_locally(execution_id, execution_date, INDEX_DIR)
-    loaded_equities_metadata = load_metadata_files_locally(execution_id, execution_date, EQUITY_DIR)
+    loaded_macro_metadata = load_file(
+        storage_client,
+        json_serializer,
+        f"{base_dir}/{MACRO_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
+    )
+    loaded_index_metadata = load_file(
+        storage_client,
+        json_serializer,
+        f"{base_dir}/{INDEX_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
+    )
+    loaded_equities_metadata = load_file(
+        storage_client,
+        json_serializer,
+        f"{base_dir}/{EQUITY_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
+    )
 
     macro_market_data_batch = load_market_data_batches_using_metadata(
-        loaded_macro_metadata, "parquet"
+        meta_data=loaded_macro_metadata, serializer=parquet_serializer, storage=storage_client
     )
     index_market_data_batch = load_market_data_batches_using_metadata(
-        loaded_index_metadata, "parquet"
+        metadata=loaded_index_metadata, serializer=parquet_serializer, storage=storage_client
     )
     equities_market_data_batch = load_market_data_batches_using_metadata(
-        loaded_equities_metadata, "parquet"
+        metadata=loaded_equities_metadata, serializer=parquet_serializer, storage=storage_client
     )
 
     _processed_macro_data = calculate_signals(macro_market_data_batch)
@@ -62,6 +100,7 @@ def signal_app(execution_id: str, execution_date: str):
 
 
 if __name__ == "__main__":
-    test_execution_id = "20260316_170604_1e0ed1aee3f648c1a1f713f1f7f7d5e2"
-    execution_date = "2026/03/16"
-    signal_app(test_execution_id, execution_date)
+    test_execution_id = "20260321_152729_4bc0ba07d7044b32ae2643e8a89a540f"
+    execution_date = "2026/03/21"
+    save_location = "s3"
+    signal_app(test_execution_id, execution_date, save_location)
