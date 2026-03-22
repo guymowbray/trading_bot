@@ -25,3 +25,6 @@ test-market-data:
 
 run-market-data-local:
 	python -m src.market_data.app
+
+run-signal-local:
+	python -m src.signal.app

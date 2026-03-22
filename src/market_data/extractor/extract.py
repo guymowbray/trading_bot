@@ -13,8 +13,11 @@ from src.util.util import (
     MA50,
     MA200,
 )
-from util.serializer import JsonSerializer, ParquetSerializer
-from util.storage import LocalStorage, S3Storage
+from util.file_io import save_file
+from util.serializer.json import JsonSerializer
+from util.serializer.parquet import ParquetSerializer
+from util.storage.local import LocalStorage
+from util.storage.s3 import S3Storage
 
 
 class TickerDataQuery:
@@ -102,13 +105,6 @@ def generate_execution_uuid() -> str:
     20260315_120505 is the timestamp and 5f2e4c8b9a1d4e5f8c9b0a7d6e3f2a1 is the random UUID.
     """
     return f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}"
-
-
-def save_file(df, storage, serializer, path):
-
-    data = serializer.serialize(df)
-
-    storage.write_bytes(data, path)
 
 
 def save_raw_data(

@@ -16,8 +16,10 @@ from market_data.extractor.extract import (
     save_metadata_file,
     save_raw_data,
 )
-from util.serializer import JsonSerializer, ParquetSerializer
-from util.storage import LocalStorage, S3Storage
+from util.serializer.json import JsonSerializer
+from util.serializer.parquet import ParquetSerializer
+from util.storage.local import LocalStorage
+from util.storage.s3 import S3Storage
 
 
 def mock_get_ticker_data(ticker_symbol, dummy_data):
