@@ -4,7 +4,7 @@ import pandas as pd
 from util.storage.base import Storage
 
 # TODO: so many things wrong with this, but im only a one man band so alas.
-S3_BUCKET_NAME_PROD = "ABCDEFG"
+S3_BUCKET_NAME_PROD = "trading-bot-data-prod"
 
 # TODO: move somewhere else.
 LOADERS = {

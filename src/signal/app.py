@@ -1,61 +1,53 @@
+from datetime import UTC, datetime
+
 import pandas as pd
 
 from src.signal.extractor import (
     load_market_data_batches_using_metadata,
 )
+from src.signal.pipeline import SIGNAL_PIPELINE
 from src.util.util import (
     DATA_DIR,
     DATA_DIR_LOCAL,
-    EQUITY_DIR,
-    INDEX_DIR,
-    MA50,
-    MA200,
-    MACRO_DIR,
-    VOLUME,
+    DATASETS,
+    SIGNALS_DIR,
+    create_and_validate_s3_filepath,
+    generate_execution_uuid,
+    parse_execution_id,
 )
-from util.file_io import load_file
+from util.file_io import create_dataset_metadata, load_file, save_dataset_batch, save_metadata_file
 from util.serializer.json import JsonSerializer
 from util.serializer.parquet import ParquetSerializer
 from util.storage.local import LocalStorage
 from util.storage.s3 import S3_BUCKET_NAME_PROD, S3Storage
 
 
-def calculate_moving_averages(data: pd.DataFrame):
-    data[MA50] = data["Close"].rolling(window=50).mean()
-    data[MA200] = data["Close"].rolling(window=200).mean()
-    data["MEAN_VOL"] = data[VOLUME].rolling(window=50).mean()
-
-    return data
-
-
-def calculate_percent_away_from_ma(data: pd.DataFrame):
-    """
-    2% -> 5% healthty
-    5% -> 10% Still good
-    15% -> extended
-    """
-    data["perct_from_ma50"] = (data["Close"] - data[MA50]) / data[MA50] * 100
-    data["perct_from_ma200"] = (data["Close"] - data[MA200]) / data[MA200] * 100
-    data["perct_from_mean_vol"] = (data[VOLUME] - data["MEAN_VOL"]) / data["MEAN_VOL"] * 100
-
-    return data
-
-
-def calculate_signals(market_data_batch: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+def calculate_signals_batch(
+    market_data_batch: dict[str, pd.DataFrame], signal_pipeline
+) -> dict[str, pd.DataFrame]:
     payload = {}
 
     for ticker_name, data in market_data_batch.items():
-        data = calculate_moving_averages(data)
-        data = calculate_percent_away_from_ma(data)
+        for fn in signal_pipeline:
+            data = fn(data)
 
         payload[ticker_name] = data
 
-        return payload
+    return payload
 
 
-def signal_app(execution_id: str, execution_date: str, save_location: str):
+# TODO: 1 E2E at this level
+def signal_app(previous_execution_id: str, save_location: str):
     parquet_serializer = ParquetSerializer()
     json_serializer = JsonSerializer()
+
+    # Need this from previous data during the market_data process
+    processed_execution_uuid = parse_execution_id(previous_execution_id)
+    previous_execution_date = processed_execution_uuid["date"]
+
+    # Create for signal process which is independent.
+    execution_uuid = generate_execution_uuid()
+    today_date = datetime.now(UTC).strftime("%Y/%m/%d")
 
     if save_location == "local":
         storage_client = LocalStorage()
@@ -67,40 +59,53 @@ def signal_app(execution_id: str, execution_date: str, save_location: str):
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
 
-    # TODO: Can dry this up somehow but dont want to optimise now.
-    loaded_macro_metadata = load_file(
-        storage_client,
-        json_serializer,
-        f"{base_dir}/{MACRO_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
-    )
-    loaded_index_metadata = load_file(
-        storage_client,
-        json_serializer,
-        f"{base_dir}/{INDEX_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
-    )
-    loaded_equities_metadata = load_file(
-        storage_client,
-        json_serializer,
-        f"{base_dir}/{EQUITY_DIR}/{execution_date}/{execution_id}/metadata_{execution_id}.json",
-    )
+    for dataset_name, (dataset_dir_name, tickers) in DATASETS.items():
+        loaded_macro_metadata = load_file(
+            storage_client,
+            json_serializer,
+            f"{base_dir}/{dataset_dir_name}/{previous_execution_date}/{previous_execution_id}/metadata_{previous_execution_id}.json",
+        )
 
-    macro_market_data_batch = load_market_data_batches_using_metadata(
-        meta_data=loaded_macro_metadata, serializer=parquet_serializer, storage=storage_client
-    )
-    index_market_data_batch = load_market_data_batches_using_metadata(
-        metadata=loaded_index_metadata, serializer=parquet_serializer, storage=storage_client
-    )
-    equities_market_data_batch = load_market_data_batches_using_metadata(
-        metadata=loaded_equities_metadata, serializer=parquet_serializer, storage=storage_client
-    )
+        macro_market_data_batch = load_market_data_batches_using_metadata(
+            metadata=loaded_macro_metadata, serializer=parquet_serializer, storage=storage_client
+        )
 
-    _processed_macro_data = calculate_signals(macro_market_data_batch)
-    _processed_index_data = calculate_signals(index_market_data_batch)
-    _processed_equities_data = calculate_signals(equities_market_data_batch)
+        # Later on we can make signal_pipeline configurable at config level.
+        processed_macro_data = calculate_signals_batch(macro_market_data_batch, SIGNAL_PIPELINE)
+
+        dir = create_and_validate_s3_filepath(
+            base_dir=SIGNALS_DIR,
+            market_data_type=dataset_dir_name,
+            today_date=today_date,
+            execution_uuid=execution_uuid,
+        )
+
+        save_dataset_batch(
+            payload=processed_macro_data,
+            base_dir=dir,
+            execution_uuid=execution_uuid,
+            storage_client=storage_client,
+            serializer=parquet_serializer,
+        )
+
+        metadata = create_dataset_metadata(
+            data=tickers,
+            dataset_name=dataset_name,
+            execution_uuid=execution_uuid,
+            dataset_dir=dir,
+            file_extension=json_serializer.extension,
+        )
+
+        save_metadata_file(
+            metadata_payload=metadata,
+            base_dir=dir,
+            execution_uuid=execution_uuid,
+            storage_client=storage_client,
+            serializer=json_serializer,
+        )
 
 
 if __name__ == "__main__":
     test_execution_id = "20260321_152729_4bc0ba07d7044b32ae2643e8a89a540f"
-    execution_date = "2026/03/21"
     save_location = "s3"
-    signal_app(test_execution_id, execution_date, save_location)
+    signal_app(test_execution_id, save_location)

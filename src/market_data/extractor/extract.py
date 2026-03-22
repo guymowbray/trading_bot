@@ -1,7 +1,3 @@
-import uuid
-from datetime import UTC, datetime
-from typing import Dict
-
 import pandas as pd
 
 from market_data.extractor.yahoo import get_ticker_data
@@ -12,12 +8,13 @@ from src.util.util import (
     INDEX_TICKERS,
     MA50,
     MA200,
+    generate_execution_uuid,
 )
-from util.file_io import save_file
+from util.file_io import create_dataset_metadata, save_dataset_batch, save_metadata_file
 from util.serializer.json import JsonSerializer
 from util.serializer.parquet import ParquetSerializer
 from util.storage.local import LocalStorage
-from util.storage.s3 import S3Storage
+from util.storage.s3 import S3_BUCKET_NAME_PROD, S3Storage
 
 
 class TickerDataQuery:
@@ -97,73 +94,8 @@ def extract_ticker_data(
     return payload
 
 
-def generate_execution_uuid() -> str:
-    """
-    Generates a unique execution UUID using the current timestamp and a random UUID.
-
-    :return: A unique execution UUID. eg 20260315_120505_5f2e4c8b9a1d4e5f8c9b0a7d6e3f2a1
-    20260315_120505 is the timestamp and 5f2e4c8b9a1d4e5f8c9b0a7d6e3f2a1 is the random UUID.
-    """
-    return f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex}"
-
-
-def save_raw_data(
-    payload: Dict[str, pd.DataFrame],
-    base_dir: str,
-    execution_uuid: str,
-    file_extension: str,
-    storage_client: str,
-    serializer,
-):
-    # TODO: validate this properly, maybe make a MarketData model.
-    # also should do validation elsewhere.
-    if not payload:
-        raise ValueError("Missing dict with ticker and data payload missing")
-
-    # base_dir.mkdir(parents=True, exist_ok=True)
-
-    for ticker, data in payload.items():
-        fname = f"{ticker}_{execution_uuid}"
-
-        save_file(
-            df=data,
-            storage=storage_client,
-            serializer=serializer,
-            path=f"{base_dir}/{fname}.{file_extension}",
-        )
-
-    return None
-
-
-def create_dataset_metadata(data, dataset_name, execution_uuid, dataset_dir, file_extension):
-    return {
-        "dataset": dataset_name,
-        "execution_uuid": execution_uuid,
-        "tickers": list(data.keys()),
-        "files": {
-            ticker: f"{dataset_dir}/{ticker}_{execution_uuid}.{file_extension}"
-            for ticker in data.keys()
-        },
-        "rows": {ticker: len(df) for ticker, df in data.items()},
-    }
-
-
-def save_metadata_file(
-    metadata_payload: dict, base_dir: str, execution_uuid: str, storage_client, serializer
-):
-    filename = f"metadata_{execution_uuid}.json"
-
-    save_file(
-        df=metadata_payload,
-        storage=storage_client,
-        serializer=serializer,
-        path=f"{base_dir}/{filename}",
-    )
-
-
-def extract_main(today_date=None, run_uuid=None, save_location="local", file_extension="parquet"):
+def extract_main(today_date=None, run_uuid=None, save_location="local"):
     # TODO: untested, need to add tests for this.
-    today_date = today_date or datetime.today().strftime("%Y/%m/%d")
     run_uuid = run_uuid or generate_execution_uuid()
 
     # TODO: add S3 and test this.
@@ -173,7 +105,7 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
 
     elif save_location == "s3":
         base_dir = DATA_DIR
-        storage_client = S3Storage(bucket="trading-bot-data-prod")
+        storage_client = S3Storage(bucket=S3_BUCKET_NAME_PROD)
 
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
@@ -188,12 +120,12 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
         data = extract_ticker_data(ticker_list=tickers)
 
         parquet_serializer = ParquetSerializer()
+        json_serializer = JsonSerializer()
 
-        save_raw_data(
+        save_dataset_batch(
             payload=data,
             base_dir=dataset_dir,
             execution_uuid=run_uuid,
-            file_extension=file_extension,
             storage_client=storage_client,
             serializer=parquet_serializer,
         )
@@ -203,7 +135,7 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
             dataset_name=dataset_name,
             execution_uuid=run_uuid,
             dataset_dir=dataset_dir,
-            file_extension=file_extension,
+            file_extension=json_serializer.extension,
         )
 
         save_metadata_file(
@@ -211,5 +143,5 @@ def extract_main(today_date=None, run_uuid=None, save_location="local", file_ext
             base_dir=dataset_dir,
             execution_uuid=run_uuid,
             storage_client=storage_client,
-            serializer=JsonSerializer(),
+            serializer=json_serializer,
         )
