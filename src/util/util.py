@@ -5,7 +5,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR_LOCAL = PROJECT_ROOT / "data"
-DATA_DIR = "data"
+MARKET_DATA_DOMAIN = "market_data"
+SIGNAL_DOMAIN = "signal"
 MACRO_DIR = "macro"
 INDEX_DIR = "index"
 EQUITY_DIR = "equities"
@@ -95,15 +96,20 @@ def parse_execution_id(execution_id):
     return {"date": formatted_date, "time": time_part, "uuid": uuid}
 
 
-def create_and_validate_s3_filepath(base_dir, market_data_type, today_date, execution_uuid):
+def create_and_validate_s3_filepath(data_domain, market_data_type, today_date, execution_uuid):
     """
     eg. signals/equities/2026/03/22/20260322_203402_dcb571f4f795490b83eb63e47815e52d
 
     Just add /{filename} after.
     """
-    file_path = f"{base_dir}/{market_data_type}/{today_date}/{execution_uuid}"
+    try:
+        datetime.strptime(today_date, "%Y/%m/%d")
+    except ValueError("Today date is not correct format."):
+        return False
 
-    pattern = r"[a-zA-Z]+/[a-zA-Z]+/\d{4}/\d{2}/\d{2}/\d{8}_\d{6}_[a-f0-9]{32}$"
+    file_path = f"{data_domain}/{market_data_type}/{today_date}/{execution_uuid}"
+
+    pattern = r"^[a-zA-Z0-9_]+/[a-zA-Z0-9_]+/\d{4}/\d{2}/\d{2}/\d{8}_\d{6}_[a-f0-9]{32}$"
 
     if not re.match(pattern, file_path):
         raise ValueError("Invalid execution_id format")

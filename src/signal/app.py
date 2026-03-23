@@ -7,9 +7,10 @@ from src.signal.extractor import (
 )
 from src.signal.pipeline import SIGNAL_PIPELINE
 from src.util.util import (
-    DATA_DIR,
+    MARKET_DATA_DOMAIN,
     DATA_DIR_LOCAL,
     DATASETS,
+    PROJECT_ROOT,
     SIGNALS_DIR,
     create_and_validate_s3_filepath,
     generate_execution_uuid,
@@ -51,19 +52,18 @@ def signal_app(previous_execution_id: str, save_location: str):
 
     if save_location == "local":
         storage_client = LocalStorage()
-        base_dir = DATA_DIR_LOCAL
 
     elif save_location == "s3":
         storage_client = S3Storage(bucket=S3_BUCKET_NAME_PROD)
-        base_dir = DATA_DIR
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
 
     for dataset_name, (dataset_dir_name, tickers) in DATASETS.items():
+
         loaded_macro_metadata = load_file(
             storage_client,
             json_serializer,
-            f"{base_dir}/{dataset_dir_name}/{previous_execution_date}/{previous_execution_id}/metadata_{previous_execution_id}.json",
+            f"{MARKET_DATA_DOMAIN}/{dataset_dir_name}/{previous_execution_date}/{previous_execution_id}/metadata_{previous_execution_id}.json",
         )
 
         macro_market_data_batch = load_market_data_batches_using_metadata(
@@ -74,7 +74,7 @@ def signal_app(previous_execution_id: str, save_location: str):
         processed_macro_data = calculate_signals_batch(macro_market_data_batch, SIGNAL_PIPELINE)
 
         dir = create_and_validate_s3_filepath(
-            base_dir=SIGNALS_DIR,
+            data_domain=SIGNALS_DIR,
             market_data_type=dataset_dir_name,
             today_date=today_date,
             execution_uuid=execution_uuid,
@@ -93,7 +93,7 @@ def signal_app(previous_execution_id: str, save_location: str):
             dataset_name=dataset_name,
             execution_uuid=execution_uuid,
             dataset_dir=dir,
-            file_extension=json_serializer.extension,
+            file_extension=parquet_serializer.extension,
         )
 
         save_metadata_file(
@@ -106,6 +106,6 @@ def signal_app(previous_execution_id: str, save_location: str):
 
 
 if __name__ == "__main__":
-    test_execution_id = "20260321_152729_4bc0ba07d7044b32ae2643e8a89a540f"
-    save_location = "s3"
+    test_execution_id = "20260322_225354_e23f759854514aa9905a24c4ab9833a4"
+    save_location = "local"
     signal_app(test_execution_id, save_location)
