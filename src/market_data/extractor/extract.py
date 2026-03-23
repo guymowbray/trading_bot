@@ -1,13 +1,16 @@
+from datetime import UTC, datetime
+
 import pandas as pd
 
 from market_data.extractor.yahoo import get_ticker_data
 from src.util.util import (
-    DATA_DIR,
+    MARKET_DATA_DOMAIN,
     DATA_DIR_LOCAL,
     DATASETS,
     INDEX_TICKERS,
     MA50,
     MA200,
+    create_and_validate_s3_filepath,
     generate_execution_uuid,
 )
 from util.file_io import create_dataset_metadata, save_dataset_batch, save_metadata_file
@@ -97,34 +100,36 @@ def extract_ticker_data(
 def extract_main(today_date=None, run_uuid=None, save_location="local"):
     # TODO: untested, need to add tests for this.
     run_uuid = run_uuid or generate_execution_uuid()
+    today_date = datetime.now(UTC).strftime("%Y/%m/%d")
+
 
     # TODO: add S3 and test this.
     if save_location == "local":
-        base_dir = DATA_DIR_LOCAL
         storage_client = LocalStorage()
 
     elif save_location == "s3":
-        base_dir = DATA_DIR
         storage_client = S3Storage(bucket=S3_BUCKET_NAME_PROD)
 
     else:
         raise ValueError(f"Unsupported save location: {save_location}")
 
     for dataset_name, (dataset_dir_name, tickers) in DATASETS.items():
-        if save_location == "local":
-            dataset_dir = base_dir / dataset_dir_name / today_date / run_uuid
-
-        elif save_location == "s3":
-            dataset_dir = f"{base_dir}/{dataset_dir_name}/{today_date}/{run_uuid}"
 
         data = extract_ticker_data(ticker_list=tickers)
 
         parquet_serializer = ParquetSerializer()
         json_serializer = JsonSerializer()
 
+        dir = create_and_validate_s3_filepath(
+            data_domain=MARKET_DATA_DOMAIN,
+            market_data_type=dataset_dir_name,
+            today_date=today_date,
+            execution_uuid=run_uuid,
+        )
+
         save_dataset_batch(
             payload=data,
-            base_dir=dataset_dir,
+            base_dir=dir,
             execution_uuid=run_uuid,
             storage_client=storage_client,
             serializer=parquet_serializer,
@@ -134,13 +139,13 @@ def extract_main(today_date=None, run_uuid=None, save_location="local"):
             data=data,
             dataset_name=dataset_name,
             execution_uuid=run_uuid,
-            dataset_dir=dataset_dir,
-            file_extension=json_serializer.extension,
+            dataset_dir=dir,
+            file_extension=parquet_serializer.extension,
         )
 
         save_metadata_file(
             metadata_payload=metadata,
-            base_dir=dataset_dir,
+            base_dir=dir,
             execution_uuid=run_uuid,
             storage_client=storage_client,
             serializer=json_serializer,

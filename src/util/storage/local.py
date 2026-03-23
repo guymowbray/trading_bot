@@ -19,7 +19,9 @@ class LocalStorage(Storage):
 
     def read_bytes(self, path: str) -> bytes:
 
-        with open(path, "rb") as f:
+        file_path = self.base_path / path
+
+        with open(file_path, "rb") as f:
             data = f.read()
 
         return data
